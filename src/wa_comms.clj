@@ -1,4 +1,4 @@
-(ns example.hello-bot
+(ns wa-comms
   (:import
     [it.auties.whatsapp.api Whatsapp]
     [it.auties.whatsapp.listener OnLoggedIn OnWhatsappNewMessage]
@@ -57,14 +57,16 @@
   (let [login-callback
         (reify OnLoggedIn
           (onLoggedIn [_] (println "Connected!!!")))
+
         on-message
         (reify OnWhatsappNewMessage
           (onNewMessage [_ whatsapp msg-info]
             (println "Got message!!")
             (handle-message msg-info)))
+
         api (-> (Whatsapp/lastConnection)
-            (.addLoggedInListener login-callback)
-            (.addNewMessageListener on-message))]
+                (.addLoggedInListener login-callback)
+                (.addNewMessageListener on-message))]
     (if api
       (reset! whatsapp-api api)
       (println "Initialization failed!"))))
