@@ -1,4 +1,4 @@
-(ns wa-comms
+(ns discord2whatsapp.wa-comms
   (:import
     [it.auties.whatsapp.api Whatsapp]
     [it.auties.whatsapp.listener OnLoggedIn OnWhatsappNewMessage]

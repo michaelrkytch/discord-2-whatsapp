@@ -1,4 +1,4 @@
-(ns discord-comms
+(ns discord2whatsapp.discord-comms
   (:require
     [clojure.core.async :as a]
     [clojure.tools.logging :as log]
@@ -19,6 +19,7 @@
 
 (defn send-text-message [channel-id text]
   (m/create-message! (:api-ch @config) channel-id :content text))
+
 (defn init-api
   "Open connection to the Discord websocket API.
 `token` is the bot token
