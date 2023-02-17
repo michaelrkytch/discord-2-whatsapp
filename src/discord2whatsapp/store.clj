@@ -1,4 +1,5 @@
-(ns discord2whatsapp.store)
+(ns discord2whatsapp.store
+  (:require [bimap]))
 
 (def ^:private store (atom {:chat-map (bimap/->BiMap [])}))
 

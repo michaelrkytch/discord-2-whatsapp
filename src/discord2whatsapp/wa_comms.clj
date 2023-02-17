@@ -23,12 +23,15 @@
       .chatJid))
 
 ;; Seems to only return chats which have been active in the session
-(defn list-chats []
-  (-> @whatsapp-api
-      .store
-      .chats
-      .iterator
-      iterator-seq))
+(defn list-chats [& [filter-fn]]
+  (let [chats (-> @whatsapp-api
+                  .store
+                  .chats
+                  .iterator
+                  iterator-seq)]
+    (if filter-fn
+      (filter filter-fn chats)
+      chats)))
 
 ;;(map #(.name %) (list-chats))
 

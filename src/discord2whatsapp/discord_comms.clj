@@ -14,14 +14,26 @@
 (def buffer-size 100)
 (def config (atom nil))
 
-(def waconnect-command
-  (slash/command "waconnect"
+(def wa-connect-command
+  (slash/command "wa-connect"
                  "Connect a WhatsApp chat to this channel"
                  :options [(slash/option "chat-name" "WhatsApp chat name" :string :required true)]))
 
+(def wa-list-chats-command
+  (slash/command "wa-list-chats" "List all chats for this user"))
+
+(def commands [wa-connect-command wa-list-chats-command])
 
 (defn send-text-message [channel-id text]
   (m/create-message! (:api-ch @config) channel-id :content text))
+
+(defn interaction-response
+  "Create an interaction response.  Pass :ephemeral true for ephemeral message."
+  [text & {ephemeral :ephemeral}]
+  (let [msg (resp/channel-message {:content text})]
+    (if ephemeral
+      (resp/ephemeral msg)
+      msg)))
 
 (defn get-channel [channel-id]
   (m/get-channel! (:api-ch @config) channel-id))
@@ -67,6 +79,33 @@
         ;;(clojure.pprint/pprint message)
         (forward-channel-message channel-id content)))))
 
+(defn handle-wa-connect [channel-id text]
+  (if (store/store-mapping channel-id text)
+    (interaction-response (str "Connected channel " channel-id " to chat " text) :ephemeral true))
+  ;; else
+  (interaction-response (str "Unable to connect to " text) :ephemeral true))
+
+(defn chat-list-filter [chat]
+  (and (.. chat (createdBy) (isPresent))
+       (not (.archived chat))))
+
+(defn handle-wa-list-chats
+  "Returns a response containing the names of all chats that meet the criteria of `chat-list-filter`"
+  []
+  (let [max-response-chars 2000
+        chats (wacomm/list-chats chat-list-filter)
+        chat-display (map #(str (.name %) "\t(" (.jid %) ")") chats)]
+    (if (seq chat-display)
+      (->> chat-display
+           (reduce #(str %1 "\n" %2))
+           ;; truncate if necessary
+           (#(if (> (count %) max-response-chars)
+               (subs % 0 max-response-chars)
+               %))
+           interaction-response)
+      ;; else
+      (interaction-response "No known WhatsApp chats for user."))))
+
 (defn process-interaction-create
   "Transform the interaction data into response data"
   [_
@@ -76,16 +115,16 @@
     :as interaction}
    ]
   (println "Received interaction " command-name)
-  (clojure.pprint/pprint interaction)
-  (when (= command-name "waconnect")
-    (if (store/store-mapping channel-id value)
-      (resp/ephemeral
-        (resp/channel-message
-          {:content (str "Connected channel " channel-id " to chat " value)}))
+  ;;(clojure.pprint/pprint interaction)
+  (try
+    (condp = command-name
+      "wa-connect" (handle-wa-connect channel-id value)
+      "wa-list-chats" (handle-wa-list-chats)
       ;; else
-      (resp/ephemeral
-        (resp/channel-message
-          {:content (str "Unable to connect to " value)})))))
+      (interaction-response (str "I don't know the command '" command-name \') :ephemeral true))
+    (catch Exception e
+      ;; TODO log
+      (interaction-response "Error processing command" :ephemeral true))))
 
 (defn handle-interaction-create
   "Process interaction data and send back the response"
@@ -94,22 +133,23 @@
     (println "type: " type ", data: " data)
     (m/create-interaction-response! (:api-ch @config) id token type :data data)))
 
-(defn register-wa-connect! [guild-id & {force-reg :force :or {force-reg false}}]
+(defn register-wa-commands! [guild-id commands & {force-reg :force :or {force-reg false}}]
     (let [{:keys [app-id api-ch]} @config
-          {:keys [name description options]} waconnect-command
-          already-registered? (fn []
-                                (->> (m/get-guild-application-commands! api-ch app-id guild-id)
-                                     deref
-                                     (map :name)
-                                     (some #{"waconnect"})))]
-      (when (or force-reg (already-registered?))
-        (m/create-guild-application-command!
-          api-ch
-          app-id
-          guild-id
-          name
-          description
-          :options options))))
+          registered-commands (->> (m/get-guild-application-commands! api-ch app-id guild-id)
+                                   deref
+                                   (map :name))
+          ]
+      (doseq [command commands]
+        (let [{:keys [name description options]} command]
+          (when (or force-reg (not-any? #(= name %) registered-commands))
+            (println "Registering " name)
+            (m/create-guild-application-command!
+              api-ch
+              app-id
+              guild-id
+              name
+              description
+              :options options))))))
 
 (defn start-listening []
   (if-let [event-ch (:event-ch @config)]
