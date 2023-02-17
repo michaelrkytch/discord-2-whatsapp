@@ -7,16 +7,30 @@
 (def whatsapp-api (atom nil))
 
 (defn message-text [msg-info]
-  (-> msg-info
-      .message
-      .content
-      .text
-      .toLowerCase))
+  (try
+    (-> msg-info
+        .message
+        .content
+        .text
+        .toLowerCase)
+    (catch Exception e
+      ;; TODO log
+      (println "Ignoring exception " (.getMessage e)))))
 
 (defn message-chat-jid [msg-info]
   (-> msg-info
       .key
       .chatJid))
+
+;; Seems to only return chats which have been active in the session
+(defn list-chats []
+  (-> @whatsapp-api
+      .store
+      .chats
+      .iterator
+      iterator-seq))
+
+;;(map #(.name %) (list-chats))
 
 (defn chat-by-name [name]
   (let [optional-chat (-> @whatsapp-api
@@ -42,6 +56,7 @@
   (if-let [chat (chat-by-name chat-name)]
     (.sendMessage @whatsapp-api chat text)))
 
+;; TODO: switch on message type
 (defn handle-message [msg-info]
   (when-let [text (message-text msg-info)]
     (let [jid (message-chat-jid msg-info)]
@@ -71,8 +86,10 @@
       (reset! whatsapp-api api)
       (println "Initialization failed!"))))
 
+(defn connect
+  "Connect to WhatsApp API and return a CompletableFuture that completes when the websocket is disconnected." []
+  (.connect @whatsapp-api))
+
 (defn -main [& args]
-  (let [api (init-api)]
-    (-> api
-        .connect
-        .get)))
+  (init-api)
+  (.get (connect)))

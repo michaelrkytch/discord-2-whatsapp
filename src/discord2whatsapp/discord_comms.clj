@@ -6,7 +6,9 @@
     [discljord.events :as e]
     [discljord.messaging :as m]
     [slash.command.structure :as slash]
-    [slash.response :as resp]))
+    [slash.response :as resp]
+    [discord2whatsapp.store :as store]
+    [discord2whatsapp.wa-comms :as wacomm]))
 
 (def intents #{:guilds :guild-messages})
 (def buffer-size 100)
@@ -17,8 +19,12 @@
                  "Connect a WhatsApp chat to this channel"
                  :options [(slash/option "chat-name" "WhatsApp chat name" :string :required true)]))
 
+
 (defn send-text-message [channel-id text]
   (m/create-message! (:api-ch @config) channel-id :content text))
+
+(defn get-channel [channel-id]
+  (m/get-channel! (:api-ch @config) channel-id))
 
 (defn init-api
   "Open connection to the Discord websocket API.
@@ -38,6 +44,14 @@
     (c/disconnect-bot! gateway-ch)
     (a/close!           event-ch)))
 
+;; TODO: This should live in core, and we should communicate via async channel
+(defn forward-channel-message [channel-id text]
+  (let [channel-name (:name (get-channel channel-id))
+        chat-name (get (store/chat-mapping) channel-id)]
+    (when chat-name
+      (wacomm/send-text-message chat-name text))))
+
+
 (defn handle-message-create
   [_                                                        ;; discard event-type
    {{:keys [bot username]} :author                          ;; map value of "author" may contain "bot" and "username"
@@ -50,7 +64,8 @@
       ;; else normal message processing
       (do
         (println "Received message from " username " on channel " channel-id "\n\"" content \")
-        (clojure.pprint/pprint message)))))
+        ;;(clojure.pprint/pprint message)
+        (forward-channel-message channel-id content)))))
 
 (defn process-interaction-create
   "Transform the interaction data into response data"
@@ -63,9 +78,14 @@
   (println "Received interaction " command-name)
   (clojure.pprint/pprint interaction)
   (when (= command-name "waconnect")
-    (resp/ephemeral
-      (resp/channel-message
-        {:content (str "Someday this might connect you to " value)}))))
+    (if (store/store-mapping channel-id value)
+      (resp/ephemeral
+        (resp/channel-message
+          {:content (str "Connected channel " channel-id " to chat " value)}))
+      ;; else
+      (resp/ephemeral
+        (resp/channel-message
+          {:content (str "Unable to connect to " value)})))))
 
 (defn handle-interaction-create
   "Process interaction data and send back the response"

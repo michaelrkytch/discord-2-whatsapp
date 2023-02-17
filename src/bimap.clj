@@ -13,13 +13,13 @@
        (get forward key default-value))
   (assoc [this key value]
     (BiMap.
-      (assoc backward value key)
       (assoc forward key value)
+      (assoc backward value key)
       mta))
   (dissoc [this key]
     (BiMap.
-      (dissoc backward (get forward key))
       (dissoc forward key)
+      (dissoc backward (get forward key))
       mta))
   (keys [this]
     (keys forward))
@@ -33,12 +33,14 @@
   "Create BiMap
   (seq data) must yield a sequence of kv pairs."
   [data]
-  (when-let [pairs (seq data)]
+  (if-let [pairs (seq data)]
     (let [forward (into {} pairs)
           backward (->> pairs
                         (map (comp vec reverse))
                         (into {}))]
-      (BiMap. forward backward nil))))
+      (BiMap. forward backward nil))
+    ;; else create empty BiMap
+    (BiMap. {} {} nil)))
 
 (defn backward-map [bimap]
   (.backward bimap))
