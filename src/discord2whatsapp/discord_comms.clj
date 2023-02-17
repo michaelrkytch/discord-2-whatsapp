@@ -61,7 +61,7 @@
     :as interaction}
    ]
   (println "Received interaction " command-name)
-  ;(clojure.pprint/pprint interaction)
+  (clojure.pprint/pprint interaction)
   (when (= command-name "waconnect")
     (resp/ephemeral
       (resp/channel-message
