@@ -39,7 +39,7 @@
   (println "Attempting to forward message on " channel-id)
   (let [chat-jid (get (store/chat-mapping) (str channel-id))]
     (when chat-jid
-      (wacomm/send-text-message chat-jid text))))
+      (wacomm/forward-text-message chat-jid text))))
 
 
 ;; -------------------------------
