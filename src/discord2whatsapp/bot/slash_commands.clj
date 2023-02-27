@@ -1,10 +1,11 @@
-(ns discord2whatsapp.slash-commands
+(ns discord2whatsapp.bot.slash-commands
   (:require
     [discljord.messaging :as m]
+    [discord2whatsapp.store :as store]
+    [discord2whatsapp.wacomms :as wacomm]
     [slash.command.structure :as slash]
     [slash.response :as resp]
-    [discord2whatsapp.wa-comms :as wacomm]
-    [discord2whatsapp.store :as store]))
+    [clojure.tools.logging :as log]))
 
 ;; -------------------------------
 ;; Slash Commands
@@ -32,7 +33,7 @@
     (doseq [command commands]
       (let [{:keys [name description options]} command]
         (when (or force-reg (not-any? #(= name %) registered-commands))
-          (println "Registering " name)
+          (log/debug "Registering " name)
           (m/create-guild-application-command!
             api-ch
             app-id
@@ -53,15 +54,11 @@
       (resp/ephemeral msg)
       msg)))
 
-(defn handle-wa-connect [channel-id chat-jid]
-  (if (wacomm/chat-by-jid chat-jid)
-    (if (store/store-mapping! channel-id chat-jid)
-      (interaction-response (str "Connected channel " channel-id " to chat " chat-jid) :ephemeral true)
-      ;; else store failure
-      (interaction-response (str "Unable to store mapping to chat " chat-jid) :ephemeral true))
-    ;; else couldn't find chat
-    (interaction-response (str "Unknown chat jid " chat-jid) :ephemeral true)
-    ))
+(defn handle-wa-connect [store channel-id chat-jid]
+  (if (store/assoc-kv! store channel-id chat-jid)
+    (interaction-response (str "Connected channel " channel-id " to chat " chat-jid) :ephemeral true)
+    ;; else store failure
+    (interaction-response (str "Unable to store mapping to chat " chat-jid) :ephemeral true)))
 
 (defn- chat-list-filter
   "Default chat list filter -- include chats that have a 'createdBy' and are not archived."
@@ -69,31 +66,37 @@
   (and (.. chat (createdBy) (isPresent))
        (not (.archived chat))))
 
-(defn handle-wa-list-chats
-  "Returns a response containing the names of all chats that meet the specified criteria.
+(defn list-chats
+  "Returns a response containing the names of all chats that meet the specified criteria, or nil if no matches.
    Filter optionally passed as :filter-fn, defaults to `chat-list-filter`"
-  [& {filter-fn :filter :or {filter-fn chat-list-filter}}]
+  [wacomms filter-fn]
   (let [max-response-chars 2000
-        chats (wacomm/list-chats filter-fn)
+        chats (wacomm/list-chats wacomms filter-fn)
         chat-display (map #(str (.jid %) "\t(" (.name %) ")") chats)]
-    (if (seq chat-display)
+    (when (seq chat-display)
       (->> chat-display
            (reduce #(str %1 "\n" %2))
            ;; truncate if necessary
            (#(if (> (count %) max-response-chars)
                (subs % 0 max-response-chars)
                %))
-           interaction-response)
-      ;; else
-      (interaction-response "No known WhatsApp chats for user."))))
+           interaction-response))))
+
+(defn handle-wa-list-chats
+  [wacomms & {filter-fn :filter :or {filter-fn chat-list-filter}}]
+  (or
+    (list-chats wacomms filter-fn)
+    (interaction-response "No known WhatsApp chats for user.")))
 
 (defn handle-wa-search-chats
   "Returns a response containing the names of all chats whose names contain the given substring"
-  [str]
+  [wacomms sstr]
   (letfn [(filter-fn [chat]
             (let [name (.. chat (name) (toLowerCase))]
-              (.contains name (.toLowerCase str))))]
-    (handle-wa-list-chats :filter filter-fn)))
+              (.contains name (.toLowerCase sstr))))]
+    (or
+      (list-chats wacomms filter-fn)
+      (interaction-response (str "No chats matching '" sstr "'")))))
 
 (defn process-interaction-create
   "Transform the interaction data into response data"
@@ -102,16 +105,18 @@
     {command-name     :name
      [{value :value}] :options} :data
     :as                         interaction}
+   wacomms
+   store
    ]
-  (println "Received interaction " command-name)
+  (log/debug "Received interaction " command-name)
   ;;(clojure.pprint/pprint interaction)
   (try
     (condp = command-name
-      "wa-connect" (handle-wa-connect channel-id value)
-      "wa-list-chats" (handle-wa-list-chats)
-      "wa-search-chats" (handle-wa-search-chats value)
+      "wa-connect" (handle-wa-connect store channel-id value)
+      "wa-list-chats" (handle-wa-list-chats wacomms)
+      "wa-search-chats" (handle-wa-search-chats wacomms value)
       ;; else
       (interaction-response (str "I don't know the command '" command-name \') :ephemeral true))
     (catch Exception e
-      ;; TODO log
-      (interaction-response (str "Error processing command\n" e) :ephemeral true))))
+      (log/warn "Exception processing command: " e)
+      (interaction-response (str "Error processing command.") :ephemeral true))))
