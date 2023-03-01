@@ -5,7 +5,8 @@ WIP
 
 #### Disclaimer
 This project is meant to be used as a personal utility, and should not be used commercially
-or at scale.
+or at scale.  If you use this software you must not violate the terms of service of
+[WhatsApp](https://www.whatsapp.com/legal/terms-of-service/) or [Discord](https://discord.com/terms).
 
 ## WhatsApp integration
 
