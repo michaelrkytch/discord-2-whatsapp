@@ -8,6 +8,12 @@ This project is meant to be used as a personal utility, and should not be used c
 or at scale.  If you use this software you must not violate the terms of service of
 [WhatsApp](https://www.whatsapp.com/legal/terms-of-service/) or [Discord](https://discord.com/terms).
 
+## Usage
+
+```
+clojure -M:server -m discord2whatsapp.server
+```
+
 ## WhatsApp integration
 
 WhatsApp does not offer a public API.  This project uses [auties00/whatsappweb4j](https://github.com/Auties00/WhatsappWeb4j),

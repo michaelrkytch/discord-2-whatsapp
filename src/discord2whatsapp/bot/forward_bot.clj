@@ -2,6 +2,7 @@
   (:require
     [clojure.core.async :as a]
     [clojure.tools.logging :as log]
+    [clojure.tools.reader.edn :as edn]
     [com.stuartsierra.component :as component]
     [discljord.connections :as c]
     [discljord.events :as e]
@@ -82,9 +83,9 @@
   "Handle internally generated :whatsapp-message event by posting the message on the given Discord channel."
   [bot
    _event-type
-   {{:keys [bot-user username]} :author                     ;; map value of "author" may contain "bot" and "username"
-    :keys                       [channel-id content]
-    :as                         message}]
+   {{:keys [bot-user _username]} :author                    ;; map value of "author" may contain "bot" and "username"
+    :keys                        [channel-id content]
+    :as                          message}]
   (log/debug "WA message:\n" message)
   (when-not bot-user
     (send-text-message bot channel-id content)))
@@ -92,12 +93,6 @@
 ;; -------------------------------
 ;; Bot component
 ;; -------------------------------
-
-(defn- load-config
-  [config-file]
-  (-> config-file
-      (slurp)
-      (clojure.edn/read-string)))
 
 (defn handler-dispatch-fn
   "Returns a dispatch function that takes event-type and event-data as parameters and
@@ -122,23 +117,21 @@
     ;; else
     (log/error "Event channel not initialized")))
 
-(defrecord Bot [config-file-path
-                ;; state
-                config api-ch event-ch gateway-ch event-loop-fut
-                ;; component dependencies
-                wacomms store]
+(defrecord Bot [config                                      ; parameters
+                wacomms store                               ; dependencies
+                api-ch event-ch gateway-ch event-loop-fut   ; state
+                ]
   component/Lifecycle
 
   (start [this]
-    (let [cfg (load-config config-file-path)
-          token (:token cfg)
+    (let [token (:token config)
           event-ch (a/chan buffer-size)
           gateway-ch (c/connect-bot! token event-ch :intents intents)
           api-ch (m/start-connection! token)
-          pre-start-bot  (into this {:config     cfg
-                                     :event-ch   event-ch
-                                     :gateway-ch gateway-ch
-                                     :api-ch     api-ch})]
+          pre-start-bot (into this {:config     config
+                                    :event-ch   event-ch
+                                    :gateway-ch gateway-ch
+                                    :api-ch     api-ch})]
       ;; Start the event loop, passing the bot with all it's channels initialized
       ;; And then store the event loop future another component field
       (assoc pre-start-bot :event-loop-fut (future (start-listening pre-start-bot event-ch)))
@@ -149,10 +142,10 @@
     (m/stop-connection! api-ch)
     (c/disconnect-bot! gateway-ch)
     (a/close! event-ch)
-    (reduce #(assoc %1 %2 nil) this [:config :event-ch :gateway-ch :api-ch :event-loop-fut])))
+    (reduce #(assoc %1 %2 nil) this [:event-ch :gateway-ch :api-ch :event-loop-fut])))
 
-(defn new-bot [config-file-path]
-  (map->Bot {:config-file-path config-file-path}))
+(defn new-bot [config]
+  (map->Bot {:config config}))
 
 (defn join
   "Block until bot shuts down"
@@ -161,11 +154,13 @@
 
 
 (comment
+  (def cfg (edn/read-string (slurp "config.edn")))
+
   (def guild-id 1063955412086435860)
   ;(def store (store/new-store "/Users/michael/tmp/discord2whatsapp-store.edn"))
   ;(alter-var-root #'store component/start)
-  (def bot (new-bot "config.edn"))
+  (def bot (new-bot cfg))
   ;(alter-var-root #'bot component/using [store])
   (alter-var-root #'bot component/start)
-  (alter-var-root #'bot component/stop)
-  )
+  (alter-var-root #'bot component/stop))
+

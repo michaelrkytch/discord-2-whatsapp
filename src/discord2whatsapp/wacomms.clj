@@ -1,12 +1,15 @@
 (ns discord2whatsapp.wacomms
-  (:require [com.stuartsierra.component :as component]
-            [clojure.tools.logging :as log])
+  (:require [clojure.edn :as edn]
+            [clojure.tools.logging :as log]
+            [com.stuartsierra.component :as component])
   (:import
-    (it.auties.whatsapp.api Whatsapp)
-    (it.auties.whatsapp.listener OnLoggedIn OnWhatsappNewMessage)
+    (it.auties.whatsapp.api QrHandler QrHandler$ToFileConsumer)
+    (it.auties.whatsapp.listener Listener OnLoggedIn OnWhatsappNewMessage)
+    (it.auties.whatsapp.api Whatsapp Whatsapp$Options)
     (it.auties.whatsapp.model.contact ContactJid)
-    (it.auties.whatsapp.model.info ContextInfo)
-    (it.auties.whatsapp.model.message.standard TextMessage)))
+    (it.auties.whatsapp.model.info ContextInfo MessageInfo)
+    (it.auties.whatsapp.model.message.standard TextMessage)
+    (java.nio.file FileSystems)))
 
 (defn message-text [msg-info]
   (try
@@ -41,7 +44,7 @@
       (filter filter-fn chats)
       chats)))
 
-(defmulti chat-by-jid (fn [wacomms jid] (class jid)))
+(defmulti chat-by-jid (fn [_wacomms jid] (class jid)))
 (defmethod chat-by-jid ContactJid [wacomms jid]
   (-> (:whatsapp-api wacomms)
       .store
@@ -105,12 +108,20 @@
 
 (defn init-api
   "Create a new instance of the Whatsapp API."
-  []
+  [qr-file-path]
   (let [login-callback
         (reify OnLoggedIn
           (onLoggedIn [_] (log/debug "WhatsApp websocket connected!!!")))
 
-        api (-> (Whatsapp/lastConnection)
+        qr-handler (QrHandler/toFile
+                     qr-file-path
+                     (reify QrHandler$ToFileConsumer
+                       (accept [this path] (log/info "qr file path " path))))
+
+        options (-> (Whatsapp$Options/defaultOptions)
+                    (.qrHandler qr-handler))
+
+        api (-> (Whatsapp/lastConnection options)
                 (.addLoggedInListener login-callback))]
     api))
 
@@ -120,7 +131,7 @@
   [wacomms handler]
   (let [on-message
         (reify OnWhatsappNewMessage
-          (onNewMessage [_ _ msg-info]
+          (^void onNewMessage [^Listener _ ^Whatsapp _ ^MessageInfo msg-info]
             (log/debug "Got WhatsApp message!!")
             (handle-wa-message wacomms msg-info handler)))]
     (.addNewMessageListener (:whatsapp-api wacomms) on-message)))
@@ -128,11 +139,16 @@
 ;------------------------------
 ; Component
 ;------------------------------
+(defn qr-file-path
+  "Returns the path to the qr file, as a Path, which will only be populated after the API is connected."
+  [storage-dir]
+  (-> (FileSystems/getDefault)
+      (.getPath storage-dir (into-array ["qr.jpg"]))))
 
-(defrecord WhatsAppComms [whatsapp-api websocket-future]
+(defrecord WhatsAppComms [storage-dir whatsapp-api websocket-future]
   component/Lifecycle
   (start [this]
-    (let [api (init-api)
+    (let [api (init-api (qr-file-path storage-dir))
           fut (.connect api)]
       (into this {:whatsapp-api api
                   :websocket-future fut})))
@@ -141,11 +157,20 @@
     (join this)
     (map #(assoc this % nil) [:whatsapp-api :websocket-future])))
 
-(defn new-wacomms []
-  (map->WhatsAppComms {}))
+(defn new-wacomms [storage-dir]
+  (map->WhatsAppComms {:storage-dir storage-dir}))
+
 
 (comment
-  (def wa (new-wacomms))
+  (def wa (new-wacomms ""))
   (alter-var-root #'wa component/start)
+
+  (require '[clojure.edn :as edn])
+  (def storage-dir (-> (slurp "config.edn")
+                       edn/read-string
+                       :storage-dir))
   )
+
+
+
 
