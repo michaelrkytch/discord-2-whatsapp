@@ -1,8 +1,6 @@
 (ns bimap
   (:require [potemkin]))
 
-;; TODO Unit tests
-;; TODO move file?
 
 ;Use potemkin/def-map-type to create the type with all the required map methods.
 ;All standard map functions behave exactly like a normal “forward” map.

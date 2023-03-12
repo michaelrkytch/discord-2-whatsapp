@@ -156,11 +156,26 @@
 (comment
   (def cfg (edn/read-string (slurp "config.edn")))
 
-  (def guild-id 1063955412086435860)
-  ;(def store (store/new-store "/Users/michael/tmp/discord2whatsapp-store.edn"))
-  ;(alter-var-root #'store component/start)
-  (def bot (new-bot cfg))
-  ;(alter-var-root #'bot component/using [store])
-  (alter-var-root #'bot component/start)
-  (alter-var-root #'bot component/stop))
+  (require '[discord2whatsapp.store :as st])
+
+  ;; Bot with it's store dependency but without the wacomms dependency
+  (def test-sys
+    (component/system-map
+      :store (st/new-store (str (:storage-dir cfg) "/discord2whatsapp.edn"))
+      :bot (component/using
+             (new-bot cfg)
+             [:store])))
+
+  (alter-var-root #'test-sys component/start)
+
+  ;; Register commands
+  (require '[discord2whatsapp.bot.slash-commands :as commands])
+  ;; TODO where do we get guild-id from in general usage?
+  (let [guild-id 1063955412086435860
+        app-id (get-in bot [:config :app-id])
+        api-ch (:api-ch bot)]
+    (commands/register-wa-commands! app-id api-ch guild-id commands/slash-commands))
+
+  (alter-var-root #'test-sys component/stop)
+  ,)
 

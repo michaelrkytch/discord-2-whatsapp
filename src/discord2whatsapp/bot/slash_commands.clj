@@ -1,11 +1,12 @@
 (ns discord2whatsapp.bot.slash-commands
   (:require
+    [clojure.string :as str]
+    [clojure.tools.logging :as log]
     [discljord.messaging :as m]
     [discord2whatsapp.store :as store]
     [discord2whatsapp.wacomms :as wacomm]
     [slash.command.structure :as slash]
-    [slash.response :as resp]
-    [clojure.tools.logging :as log]))
+    [slash.response :as resp]))
 
 ;; -------------------------------
 ;; Slash Commands
@@ -24,7 +25,11 @@
                  "Search for user's chats matching the given string"
                  :options [(slash/option "name-contains" "Search string" :string :required true)]))
 
-(def slash-commands [wa-connect-command wa-list-chats-command wa-search-chats-command])
+(def wa-list-connections
+  (slash/command "wa-list-connections"
+                 "List established channel-chat connections"))
+
+(def slash-commands [wa-connect-command wa-list-chats-command wa-search-chats-command wa-list-connections])
 
 (defn register-wa-commands! [app-id api-ch guild-id commands & {force-reg :force :or {force-reg false}}]
   (let [registered-commands (->> (m/get-guild-application-commands! api-ch app-id guild-id)
@@ -98,6 +103,13 @@
       (list-chats wacomms filter-fn)
       (interaction-response (str "No chats matching '" sstr "'")))))
 
+(defn handle-wa-list-connections [store]
+  (let [text (->> (store/data store)
+                  seq
+                  (map (fn [[channel chat]] (str channel "\t" chat)))
+                  (str/join "\n"))]
+    (interaction-response text)))
+
 (defn process-interaction-create
   "Transform the interaction data into response data"
   [_
@@ -115,6 +127,7 @@
       "wa-connect" (handle-wa-connect store channel-id value)
       "wa-list-chats" (handle-wa-list-chats wacomms)
       "wa-search-chats" (handle-wa-search-chats wacomms value)
+      "wa-list-connections" (handle-wa-list-connections store)
       ;; else
       (interaction-response (str "I don't know the command '" command-name \') :ephemeral true))
     (catch Exception e
