@@ -58,16 +58,16 @@
 ;; -------------------------------
 
 (defn handle-message-create
-  [bot
+  [bot-component
    _event-type
-   {{:keys [bot-user username]} :author                     ;; map value of "author" may contain "bot" and "username"
+   {{:keys [bot username]} :author                     ;; map value of "author" may contain "bot" and "username"
     :keys                       [channel-id content]
     :as                         message}]
   (log/debug message)
-  (when-not bot-user
+  (when-not bot
     (log/debug "Received message from " username " on channel " channel-id "\n\"" content \")
     ;;(clojure.pprint/pprint message)
-    (forward-channel-message bot channel-id content)))
+    (forward-channel-message bot-component channel-id content)))
 
 (defn handle-interaction-create
   "Process interaction data and send back the response"
@@ -81,14 +81,14 @@
 ;; A :whatsapp-message is posted internally by wa-comms
 (defn handle-forward-message
   "Handle internally generated :whatsapp-message event by posting the message on the given Discord channel."
-  [bot
+  [bot-component
    _event-type
-   {{:keys [bot-user _username]} :author                    ;; map value of "author" may contain "bot" and "username"
+   {{:keys [bot username]} :author                    ;; map value of "author" may contain "bot" and "username"
     :keys                        [channel-id content]
     :as                          message}]
   (log/debug "WA message:\n" message)
-  (when-not bot-user
-    (send-text-message bot channel-id content)))
+  (when-not bot
+    (send-text-message bot-component channel-id content)))
 
 ;; -------------------------------
 ;; Bot component
