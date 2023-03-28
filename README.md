@@ -1,5 +1,5 @@
-# discord2whatsapp
-Two-way message forwarding between Discord and Whatsapp
+# message-bridge-bot
+Two-way message forwarding between Discord other messaging platforms.  (Currently implemented for Discord-WhatsApp)
 
 WIP
 
