@@ -1,5 +1,8 @@
 /.nrepl-port
-/discord2whatsapp.iml
+/message-bridge-bot.iml
 /.idea/
-/resources/config.edn
+/resources/dev-config.edn
 /dev/
+/notes/
+/.cpcache/
+app.tar

@@ -7,6 +7,6 @@
   <root level="INFO">
     <appender-ref ref="STDOUT" />
   </root>
-  <logger name="discord2whatsapp.bot.forward-bot" level="DEBUG" />
-  <logger name="discord2whatsapp.wacomms" level="DEBUG" />
+  <logger name="messagebridge.bot.forward-bot" level="DEBUG" />
+  <logger name="messagebridge.wacomms" level="DEBUG" />
 </configuration>

@@ -1,15 +1,13 @@
-(ns discord2whatsapp.wacomms
-  (:require [clojure.edn :as edn]
-            [clojure.tools.logging :as log]
+(ns messagebridge.wacomms
+  (:require [clojure.tools.logging :as log]
             [com.stuartsierra.component :as component])
   (:import
     (it.auties.whatsapp.api QrHandler QrHandler$ToFileConsumer)
-    (it.auties.whatsapp.listener Listener OnLoggedIn OnWhatsappNewMessage)
     (it.auties.whatsapp.api Whatsapp Whatsapp$Options)
+    (it.auties.whatsapp.listener Listener OnLoggedIn OnWhatsappNewMessage)
     (it.auties.whatsapp.model.contact ContactJid)
     (it.auties.whatsapp.model.info ContextInfo MessageInfo)
-    (it.auties.whatsapp.model.message.standard TextMessage)
-    (java.nio.file FileSystems)))
+    (it.auties.whatsapp.model.message.standard TextMessage)))
 
 (defn message-text [msg-info]
   (try
@@ -125,7 +123,7 @@
                 (.addLoggedInListener login-callback))]
     api))
 
-(defn add-message-listener
+(defn add-message-listener!
   "Register 'handler' as default handler for accepted WA messages.
   'handler' takes a WA chat jid and some content value as arguments"
   [wacomms handler]
@@ -139,16 +137,11 @@
 ;------------------------------
 ; Component
 ;------------------------------
-(defn qr-file-path
-  "Returns the path to the qr file, as a Path, which will only be populated after the API is connected."
-  [storage-dir]
-  (-> (FileSystems/getDefault)
-      (.getPath storage-dir (into-array ["qr.jpg"]))))
 
-(defrecord WhatsAppComms [storage-dir whatsapp-api websocket-future]
+(defrecord WhatsAppComms [qr-file-path whatsapp-api websocket-future]
   component/Lifecycle
   (start [this]
-    (let [api (init-api (qr-file-path storage-dir))
+    (let [api (init-api qr-file-path)
           fut (.connect api)]
       (into this {:whatsapp-api api
                   :websocket-future fut})))
@@ -157,19 +150,9 @@
     (join this)
     (map #(assoc this % nil) [:whatsapp-api :websocket-future])))
 
-(defn new-wacomms [storage-dir]
-  (map->WhatsAppComms {:storage-dir storage-dir}))
+(defn new-wacomms [qr-file-path]
+  (map->WhatsAppComms {:qr-file-path qr-file-path}))
 
-
-(comment
-  (def wa (new-wacomms ""))
-  (alter-var-root #'wa component/start)
-
-  (require '[clojure.edn :as edn])
-  (def storage-dir (-> (slurp "config.edn")
-                       edn/read-string
-                       :storage-dir))
-  )
 
 
 

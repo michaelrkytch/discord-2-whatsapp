@@ -11,7 +11,7 @@ or at scale.  If you use this software you must not violate the terms of service
 ## Usage
 
 ```
-clojure -M:server -m discord2whatsapp.server
+clojure -M:server -m messagebridge.server
 ```
 
 ## WhatsApp integration

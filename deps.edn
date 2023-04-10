@@ -17,13 +17,15 @@
            ring/ring-core                    {:mvn/version "1.7.1"}
            metosin/reitit                    {:mvn/version "0.6.0"}
            http-kit/http-kit                 {:mvn/version "2.6.0"}
+           ;; Cloud (TODO: split this out into an alias)
+           com.google.cloud/google-cloud-nio {:mvn/version "0.123.10"}
            }
  :aliases {:server
            ;; we override user.home because WhatsappWeb4J puts its session data in ~/.whatsappweb4j
-           {:jvm-opts  ["-Duser.home=/var/lib/discord2whatsapp" "--enable-preview"]
-            :main-opts ["-m" "discord2whatsapp.server"]}
+           {:jvm-opts  ["-Duser.home=/var/lib/messagebridge" "--enable-preview"]
+            :main-opts ["-m" "messagebridge.server"]}
            :repl/rebel
-           {:jvm-opts  ["-Duser.home=/var/lib/discord2whatsapp" "--enable-preview"]
+           {:jvm-opts  ["-Duser.home=/var/lib/messagebridge" "--enable-preview"]
             :extra-deps {nrepl/nrepl                {:mvn/version "0.9.0"}
                          cider/cider-nrepl          {:mvn/version "0.28.2"}
                          com.bhauman/rebel-readline {:mvn/version "0.1.4"}}

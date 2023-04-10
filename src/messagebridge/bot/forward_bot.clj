@@ -1,4 +1,4 @@
-(ns discord2whatsapp.bot.forward-bot
+(ns messagebridge.bot.forward-bot
   (:require
     [clojure.core.async :as a]
     [clojure.tools.logging :as log]
@@ -7,9 +7,9 @@
     [discljord.connections :as c]
     [discljord.events :as e]
     [discljord.messaging :as m]
-    [discord2whatsapp.bot.slash-commands :as commands]
-    [discord2whatsapp.store :as store]
-    [discord2whatsapp.wacomms :as wacomm]))
+    [messagebridge.bot.slash-commands :as commands]
+    [messagebridge.store :as store]
+    [messagebridge.wacomms :as wacomm]))
 
 (def intents #{:guilds :guild-messages})
 (def buffer-size 100)
@@ -124,7 +124,7 @@
   component/Lifecycle
 
   (start [this]
-    (let [token (:token config)
+    (let [token (:discord-app-token config)
           event-ch (a/chan buffer-size)
           gateway-ch (c/connect-bot! token event-ch :intents intents)
           api-ch (m/start-connection! token)
@@ -154,14 +154,14 @@
 
 
 (comment
-  (def cfg (edn/read-string (slurp "config.edn")))
+  (def cfg (edn/read-string (slurp "dev-config.edn")))
 
-  (require '[discord2whatsapp.store :as st])
+  (require '[messagebridge.store :as st])
 
   ;; Bot with it's store dependency but without the wacomms dependency
   (def test-sys
     (component/system-map
-      :store (st/new-store (str (:storage-dir cfg) "/discord2whatsapp.edn"))
+      :store (st/new-store (str (:storage-dir cfg) "/messagebridge.edn"))
       :bot (component/using
              (new-bot cfg)
              [:store])))
@@ -169,10 +169,10 @@
   (alter-var-root #'test-sys component/start)
 
   ;; Register commands
-  (require '[discord2whatsapp.bot.slash-commands :as commands])
+  (require '[messagebridge.bot.slash-commands :as commands])
   ;; TODO where do we get guild-id from in general usage?
   (let [guild-id 1063955412086435860
-        app-id (get-in bot [:config :app-id])
+        app-id (get-in bot [:config :discord-app-id])
         api-ch (:api-ch bot)]
     (commands/register-wa-commands! app-id api-ch guild-id commands/slash-commands))
 

@@ -2,4 +2,4 @@
  :base-image {:type :registry
               :image-name "openjdk:17-jdk-slim"}
  :target-image {:type :docker
-                :image-name "michaelrkytch/discord2whatsapp"}}
+                :image-name "michaelrkytch/messagebridge"}}

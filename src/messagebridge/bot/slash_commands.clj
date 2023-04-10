@@ -1,10 +1,10 @@
-(ns discord2whatsapp.bot.slash-commands
+(ns messagebridge.bot.slash-commands
   (:require
     [clojure.string :as str]
     [clojure.tools.logging :as log]
     [discljord.messaging :as m]
-    [discord2whatsapp.store :as store]
-    [discord2whatsapp.wacomms :as wacomm]
+    [messagebridge.store :as store]
+    [messagebridge.wacomms :as wacomm]
     [slash.command.structure :as slash]
     [slash.response :as resp]))
 

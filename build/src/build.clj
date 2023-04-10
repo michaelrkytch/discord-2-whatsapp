@@ -27,6 +27,6 @@
   (b/uber {:class-dir jar-content                           ; create uber file
            :uber-file uber-file-name
            :basis     basis
-           :main      'discord2whatsapp.server})            ; here we specify the entry point for uberjar
+           :main      'messagebridge.server})            ; here we specify the entry point for uberjar
 
   (println (format "Uber file created: \"%s\"" uber-file-name)))
